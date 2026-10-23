@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${isEdit ? 'Edit Student' : 'Add New Student'} + ' - Smart QR Based Attendance System'">Student Form</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<div class="app-container">
+    <div th:replace="~{fragments :: sidebar('students')}"></div>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments :: topHeader(${isEdit ? 'Edit Student Details' : 'Register New Student'}, 'Fill in student and parent contact information')}"></header>
+
+        <div class="content-body">
+            <div style="max-width: 800px; margin: 0 auto;">
+
+                <!-- Error feedback -->
+                <div th:if="${errorMessage}" class="alert alert-danger">
+                    <span>⚠</span> <span th:text="${errorMessage}">Validation error</span>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><span th:text="${isEdit ? '✏ Edit Student' : '➕ New Student Registration'}">Form</span></h3>
+                        <a th:href="@{/students}" class="btn btn-outline-brown btn-sm">&larr; Back to List</a>
+                    </div>
+
+                    <div class="card-body">
+                        <form th:action="@{/students/save}" th:object="${student}" method="post">
+                            <input type="hidden" th:field="*{id}" />
+                            <input type="hidden" name="isEdit" th:value="${isEdit}" />
+
+                            <!-- Section 1: Academic Info -->
+                            <h4 style="color: var(--primary-brown); margin-bottom: 14px; font-size: 15px; border-bottom: 2px solid var(--beige); padding-bottom: 6px;">
+                                1. Academic Identification
+                            </h4>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="studentId">Unique Student ID * (Used in QR Code)</label>
+                                    <input type="text" id="studentId" th:field="*{studentId}" class="form-control"
+                                           placeholder="e.g. STU001" required th:readonly="${isEdit}" />
+                                    <small style="color: var(--text-muted); font-size: 11px;">Must be unique. This value will be encoded into the QR code.</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="rollNo">College Roll Number *</label>
+                                    <input type="text" id="rollNo" th:field="*{rollNo}" class="form-control"
+                                           placeholder="e.g. 101" required />
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="name">Student Full Name *</label>
+                                <input type="text" id="name" th:field="*{name}" class="form-control"
+                                       placeholder="e.g. Amandeep Singh" required />
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="className">Class / Branch *</label>
+                                    <input type="text" id="className" th:field="*{className}" class="form-control"
+                                           placeholder="e.g. CSE, IT, MECH" required />
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="division">Division / Section *</label>
+                                    <input type="text" id="division" th:field="*{division}" class="form-control"
+                                           placeholder="e.g. A or B" required />
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Contact & Notification Info -->
+                            <h4 style="color: var(--primary-brown); margin: 24px 0 14px; font-size: 15px; border-bottom: 2px solid var(--beige); padding-bottom: 6px;">
+                                2. Notification & Contact Information
+                            </h4>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="studentEmail">Student Email Address * (For Absence Notification)</label>
+                                    <input type="email" id="studentEmail" th:field="*{studentEmail}" class="form-control"
+                                           placeholder="student@gmail.com" required />
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="studentMobile">Student Mobile (Optional)</label>
+                                    <input type="text" id="studentMobile" th:field="*{studentMobile}" class="form-control"
+                                           placeholder="e.g. 9876543210" />
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="parentName">Parent / Guardian Name *</label>
+                                    <input type="text" id="parentName" th:field="*{parentName}" class="form-control"
+                                           placeholder="e.g. Gurdeep Singh" required />
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="parentEmail">Parent Email Address * (For Automatic Alerts)</label>
+                                    <input type="email" id="parentEmail" th:field="*{parentEmail}" class="form-control"
+                                           placeholder="parent@gmail.com" required />
+                                    <small style="color: var(--text-muted); font-size: 11px;">Parent receives an automatic notification whenever student is absent.</small>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+                                <a th:href="@{/students}" class="btn btn-outline-brown">Cancel</a>
+                                <button type="submit" class="btn btn-golden">
+                                    <span th:text="${isEdit ? '💾 Update Student' : '✓ Save & Generate QR'}">Save</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

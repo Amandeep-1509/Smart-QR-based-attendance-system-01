@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+    <!-- REUSABLE SIDEBAR FRAGMENT -->
+    <aside th:fragment="sidebar(activeMenu)" class="sidebar">
+        <div class="sidebar-header" style="box-sizing:border-box;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 16px 16px;">
+            <div class="brand-logo-wrap" style="box-sizing:border-box;flex:0 0 68px;width:226px;max-width:100%;height:68px;min-width:0;padding:5px 8px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:7px;overflow:hidden;"><img class="brand-logo" style="display:block;flex:0 1 auto;width:100%;max-width:100%;height:100%;max-height:100%;object-fit:contain;" th:src="@{/images/armiet-logo.png}" alt="ARMIET College logo"></div>
+            <div class="brand-copy">
+                <div class="brand-title">Smart QR Based</div>
+                <div class="brand-subtitle">Attendance System</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-heading">Main Navigation</div>
+
+            <a th:href="@{/dashboard}" class="nav-link" th:classappend="${activeMenu == 'dashboard'} ? 'active' : ''">
+                <span class="icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a th:href="@{/students}" class="nav-link" th:classappend="${activeMenu == 'students'} ? 'active' : ''">
+                <span class="icon">🎓</span>
+                <span>Students</span>
+            </a>
+
+            <div class="nav-heading">Attendance Modules</div>
+
+            <a th:href="@{/attendance/qr}" class="nav-link" th:classappend="${activeMenu == 'qr'} ? 'active' : ''">
+                <span class="icon">📷</span>
+                <span>QR Attendance</span>
+            </a>
+
+            <a th:href="@{/attendance/manual}" class="nav-link" th:classappend="${activeMenu == 'manual'} ? 'active' : ''">
+                <span class="icon">📝</span>
+                <span>Manual Attendance</span>
+            </a>
+
+            <div class="nav-heading">Notifications & Analytics</div>
+
+            <a th:href="@{/notifications}" class="nav-link" th:classappend="${activeMenu == 'notifications'} ? 'active' : ''">
+                <span class="icon">✉</span>
+                <span>Email Notifications</span>
+            </a>
+
+            <a th:href="@{/reports}" class="nav-link" th:classappend="${activeMenu == 'reports'} ? 'active' : ''">
+                <span class="icon">📈</span>
+                <span>Attendance Reports</span>
+            </a>
+
+            <!-- Admin Settings Section -->
+            <div class="nav-heading">Admin Settings</div>
+
+            <a th:href="@{/settings/email}" class="nav-link" th:classappend="${activeMenu == 'email-settings'} ? 'active' : ''">
+                <span class="icon">⚙</span>
+                <span>Email Settings</span>
+            </a>
+
+            <a th:href="@{/settings/templates}" class="nav-link" th:classappend="${activeMenu == 'email-templates'} ? 'active' : ''">
+                <span class="icon">📝</span>
+                <span>Email Templates</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar" th:text="${session.userName != null ? #strings.substring(session.userName, 0, 1) : 'A'}">A</div>
+                <div>
+                    <div class="user-name" th:text="${session.userName != null ? session.userName : 'Admin'}">Admin</div>
+                    <div class="user-role" th:text="${session.userRole != null ? session.userRole : 'ADMIN'}">ADMIN</div>
+                </div>
+            </div>
+            <a th:href="@{/logout}" class="btn-logout" title="Logout">⏻</a>
+        </div>
+    </aside>
+
+    <!-- REUSABLE TOP HEADER FRAGMENT -->
+    <header th:fragment="topHeader(title, subtitle)" class="top-header">
+        <div class="page-title-group">
+            <h1 th:text="${title}">Page Title</h1>
+            <p th:text="${subtitle}">Page description and details</p>
+        </div>
+        <div class="header-actions">
+            <a th:href="@{/settings/email}" class="btn btn-outline-brown btn-sm" title="Configure Sender Email">
+                <span>⚙</span> Email Settings
+            </a>
+            <a th:href="@{/attendance/qr}" class="btn btn-golden btn-sm">
+                <span>📷</span> Start QR Scan
+            </a>
+        </div>
+    </header>
+
+</body>
+</html>

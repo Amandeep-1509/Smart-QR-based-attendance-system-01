@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management - Smart QR Based Attendance System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<div class="app-container">
+    <div th:replace="~{fragments :: sidebar('students')}"></div>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments :: topHeader('Student Management', 'Register, view, search students and generate their attendance QR codes')}"></header>
+
+        <div class="content-body">
+            <!-- Flash feedback messages -->
+            <div th:if="${successMessage}" class="alert alert-success">
+                <span>✓</span> <span th:text="${successMessage}">Success message</span>
+            </div>
+            <div th:if="${errorMessage}" class="alert alert-danger">
+                <span>⚠</span> <span th:text="${errorMessage}">Error message</span>
+            </div>
+
+            <!-- Toolbar: Search box & Add Student Button -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+                <form th:action="@{/students}" method="get" class="search-box">
+                    <span>🔍</span>
+                    <input type="text" name="search" th:value="${searchQuery}" 
+                           placeholder="Search by name, roll no, class or ID..." />
+                    <button type="submit" class="btn btn-golden btn-sm">Search</button>
+                    <a th:if="${!#strings.isEmpty(searchQuery)}" th:href="@{/students}" class="btn btn-outline-brown btn-sm">Clear</a>
+                </form>
+
+                <div style="display: flex; gap: 10px;">
+                    <a th:href="@{/students/new}" class="btn btn-golden">
+                        <span>+</span> Add New Student
+                    </a>
+                </div>
+            </div>
+
+            <!-- Students List Table Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><span>🎓</span> Registered Students (<span th:text="${totalStudents}">0</span>)</h3>
+                    <span style="font-size: 13px; color: var(--text-muted);">Each student has a unique QR code encoded with their Student ID</span>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Roll No</th>
+                                    <th>Student Name</th>
+                                    <th>Class & Div</th>
+                                    <th>Student Email</th>
+                                    <th>Parent Name & Email</th>
+                                    <th>QR Code</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="student : ${students}">
+                                    <td>
+                                        <code style="background-color: var(--beige); padding: 3px 6px; border-radius: 4px; font-weight: 700; color: var(--primary-brown);"
+                                              th:text="${student.studentId}">STU001</code>
+                                    </td>
+                                    <td><strong th:text="${student.rollNo}">101</strong></td>
+                                    <td>
+                                        <strong th:text="${student.name}">Amandeep Singh</strong>
+                                        <div th:if="${student.studentMobile}" style="font-size: 11px; color: var(--text-muted);" th:text="'📱 ' + ${student.studentMobile}"></div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background-color: var(--beige-dark); color: var(--primary-brown);"
+                                              th:text="${student.className + ' - ' + student.division}">CSE - A</span>
+                                    </td>
+                                    <td>
+                                        <a th:href="'mailto:' + ${student.studentEmail}" style="color: var(--primary-brown); font-size: 13px;"
+                                           th:text="${student.studentEmail}">student@gmail.com</a>
+                                    </td>
+                                    <td>
+                                        <div th:text="${student.parentName}">Gurdeep Singh</div>
+                                        <small style="color: var(--text-muted);" th:text="${student.parentEmail}">parent@gmail.com</small>
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 6px;">
+                                            <a th:href="@{'/students/' + ${student.id} + '/card'}" class="btn btn-outline-brown btn-sm" title="View & Print ID Card with QR">
+                                                <span>🪪</span> Card
+                                            </a>
+                                            <a th:href="@{'/students/' + ${student.id} + '/qr-download'}" class="btn btn-golden btn-sm" title="Download QR Code PNG">
+                                                <span>📥</span> QR
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <a th:href="@{'/students/edit/' + ${student.id}}" class="btn btn-outline-brown btn-sm" title="Edit">
+                                            ✏ Edit
+                                        </a>
+                                        <a th:href="@{'/students/delete/' + ${student.id}}" class="btn btn-red btn-sm"
+                                           onclick="return confirm('Are you sure you want to delete this student?');" title="Delete">
+                                            🗑
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(students)}">
+                                    <td colspan="8" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                                        No students found matching your criteria.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

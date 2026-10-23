@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher / Admin Login - Smart QR Based Attendance System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .login-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #543621 0%, #8D5B36 55%, #B07D54 100%);
+            padding: 20px;
+        }
+        .login-card {
+            background-color: var(--white);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.22);
+            border: 2px solid var(--golden);
+            overflow: hidden;
+        }
+        .login-header {
+            background: linear-gradient(135deg, var(--dark-brown), var(--primary-brown));
+            padding: 30px 24px;
+            text-align: center;
+            color: var(--white);
+            border-bottom: 3px solid var(--golden);
+        }
+        .login-header .logo-badge {
+            width: 220px;
+            max-width: 100%;
+            min-height: 66px;
+            padding: 8px 12px;
+            background: #FFFFFF;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+        }
+        .login-header .logo-badge img { display:block; width:100%; height:auto; object-fit:contain; }
+        .login-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--golden-light);
+        }
+        .login-header p {
+            font-size: 13px;
+            color: #F7EFE7;
+            margin-top: 4px;
+        }
+        .login-body {
+            padding: 32px 28px;
+        }
+        .demo-credentials-box {
+            background-color: var(--beige);
+            border: 1px dashed var(--golden);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: var(--text-dark);
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="login-page">
+
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo-badge"><img th:src="@{/images/armiet-logo.png}" alt="ARMIET College logo"></div>
+            <h2>Smart QR Based Attendance System</h2>
+            <p>ARMIET College</p>
+        </div>
+
+        <div class="login-body">
+            <!-- Error message on failed login -->
+            <div th:if="${errorMessage}" class="alert alert-danger">
+                <span>⚠</span> <span th:text="${errorMessage}">Invalid credentials</span>
+            </div>
+
+            <!-- Success message on logout -->
+            <div th:if="${successMessage}" class="alert alert-success">
+                <span>✓</span> <span th:text="${successMessage}">Logged out successfully</span>
+            </div>
+
+            <form th:action="@{/login}" method="post">
+                <div class="form-group">
+                    <label class="form-label" for="username">Portal Username</label>
+                    <input type="text" id="username" name="username" class="form-control" 
+                           placeholder="Enter username (e.g. admin)" required autofocus value="admin">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" name="password" class="form-control" 
+                           placeholder="Enter password" required value="admin123">
+                </div>
+
+                <button type="submit" class="btn btn-golden" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px; margin-top: 10px;">
+                    Login to Portal &rarr;
+                </button>
+            </form>
+
+            <div class="demo-credentials-box">
+                <strong>Default Accounts:</strong><br>
+                Admin (Full Access &amp; Email Settings): <code>admin</code> / <code>admin123</code><br>
+                Teacher (Staff Attendance): <code>teacher</code> / <code>teacher123</code>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

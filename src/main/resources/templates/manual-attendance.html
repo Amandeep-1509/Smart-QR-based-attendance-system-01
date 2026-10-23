@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Attendance Backup - Smart QR Based Attendance System</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<div class="app-container">
+    <div th:replace="~{fragments :: sidebar('manual')}"></div>
+
+    <div class="main-wrapper">
+        <header th:replace="~{fragments :: topHeader('Manual Attendance Backup', 'Fallback attendance marking when camera or student QR is unavailable')}"></header>
+
+        <div class="content-body">
+
+            <!-- Alerts -->
+            <div th:if="${successMessage}" class="alert alert-success">
+                <span>✓</span> <span th:text="${successMessage}">Attendance saved</span>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="card" style="margin-bottom: 20px; padding: 18px 24px;">
+                <form th:action="@{/attendance/manual}" method="get" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                    <div>
+                        <label class="form-label">Attendance Date</label>
+                        <input type="date" name="date" class="form-control" th:value="${selectedDate}" required />
+                    </div>
+
+                    <div>
+                        <label class="form-label">Class Session</label>
+                        <select name="session" class="form-control" style="width: 170px;">
+                            <option value="Regular" th:selected="${classSession == 'Regular'}">Regular</option>
+                            <option value="Morning Session" th:selected="${classSession == 'Morning Session'}">Morning Session</option>
+                            <option value="Afternoon Session" th:selected="${classSession == 'Afternoon Session'}">Afternoon Session</option>
+                            <option value="Lab Practical" th:selected="${classSession == 'Lab Practical'}">Lab Practical</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Filter Branch/Class</label>
+                        <select name="className" class="form-control" style="width: 150px;">
+                            <option value="ALL">All Classes</option>
+                            <option th:each="cls : ${availableClasses}" th:value="${cls}" th:text="${cls}" th:selected="${cls == selectedClass}">CSE</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-outline-brown">Filter</button>
+                </form>
+            </div>
+
+            <!-- Attendance Form -->
+            <form th:action="@{/attendance/manual/save}" method="post">
+                <input type="hidden" name="date" th:value="${selectedDate}" />
+                <input type="hidden" name="session" th:value="${classSession}" />
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><span>📝</span> Student Roster</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" onclick="setAllRadio('PRESENT')" class="btn btn-outline-brown btn-sm">
+                                Select All Present
+                            </button>
+                            <button type="button" onclick="setAllRadio('ABSENT')" class="btn btn-outline-brown btn-sm">
+                                Select All Absent
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-body" style="padding: 0;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Roll No</th>
+                                        <th>Student ID</th>
+                                        <th>Student Name</th>
+                                        <th>Class & Div</th>
+                                        <th style="text-align: center; width: 140px;">Present</th>
+                                        <th style="text-align: center; width: 140px;">Absent</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="student : ${students}">
+                                        <td><strong th:text="${student.rollNo}">101</strong></td>
+                                        <td><code th:text="${student.studentId}">STU001</code></td>
+                                        <td><strong th:text="${student.name}">Amandeep Singh</strong></td>
+                                        <td th:text="${student.className + ' - ' + student.division}">CSE-A</td>
+                                        <td style="text-align: center;">
+                                            <input type="radio" 
+                                                   th:name="'status_' + ${student.studentId}" 
+                                                   value="PRESENT" 
+                                                   class="radio-present"
+                                                   th:checked="${statusMap[student.studentId] == 'PRESENT'}" />
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="radio" 
+                                                   th:name="'status_' + ${student.studentId}" 
+                                                   value="ABSENT" 
+                                                   class="radio-absent"
+                                                   th:checked="${statusMap[student.studentId] == 'ABSENT' || statusMap[student.studentId] == null}" />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style="padding: 20px 24px; background-color: var(--beige); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; color: var(--text-muted);">
+                            💡 Changes will be committed to the database immediately.
+                        </span>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="submit" class="btn btn-golden">
+                                💾 Save Manual Attendance
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Complete Attendance and Send Email -->
+            <div class="card" style="background: linear-gradient(135deg, var(--beige), var(--white)); border: 1.5px dashed var(--golden);">
+                <div class="card-body" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                    <div>
+                        <h4 style="color: var(--primary-brown); font-size: 16px;">Finish Attendance & Send Absence Notifications</h4>
+                        <p style="font-size: 13px; color: var(--text-muted);">
+                            Automatically identify students marked absent (or unrecorded) and email both the student and their parent.
+                        </p>
+                    </div>
+                    <form th:action="@{/attendance/complete}" method="post">
+                        <input type="hidden" name="session" th:value="${classSession}" />
+                        <button type="submit" class="btn btn-brown" 
+                                onclick="return confirm('Dispatch absentee notifications to absent students and their parents?');">
+                            <span>✉</span> Attendance Completed &rarr; Notify Absentees
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function setAllRadio(status) {
+        if (status === 'PRESENT') {
+            document.querySelectorAll('.radio-present').forEach(r => r.checked = true);
+        } else {
+            document.querySelectorAll('.radio-absent').forEach(r => r.checked = true);
+        }
+    }
+</script>
+</body>
+</html>
