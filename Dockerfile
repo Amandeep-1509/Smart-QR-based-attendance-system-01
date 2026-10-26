@@ -1,19 +1,16 @@
-# Build React + Vite application
-FROM node:20-alpine AS build
+FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json bun.lock ./
+COPY package.json ./
 RUN npm install
 
 COPY . .
+
 RUN npm run build
 
-# Serve the built application
-FROM nginx:alpine
+ENV NODE_ENV=production
 
-COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 3000
 
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]
