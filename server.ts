@@ -6,7 +6,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'smart_attendance_data.json');
 
@@ -1020,7 +1020,11 @@ async function startServer() {
   } else {
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || req.path.startsWith('/api/')) {
+        return next();
+      }
+
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
