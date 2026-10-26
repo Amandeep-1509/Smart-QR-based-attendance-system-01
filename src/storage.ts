@@ -143,6 +143,34 @@ export const StorageService = {
     }
   },
 
+  // Unified Registration (Sign Up)
+  async registerUser(data: {
+    username: string;
+    password: string;
+    fullName: string;
+    designation: string;
+    department: string;
+    email: string;
+  }): Promise<{ success: boolean; message: string; user?: User }> {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        this.setCurrentUser(result.user);
+        localStorage.setItem('smart_attendance_is_initialized', 'true');
+        await this.syncState();
+        return { success: true, message: result.message, user: result.user };
+      }
+      return { success: false, message: result.error || 'Failed to register account.' };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  },
+
   // Auth
   getCurrentUser(): User | null {
     const raw = localStorage.getItem('smart_attendance_user');

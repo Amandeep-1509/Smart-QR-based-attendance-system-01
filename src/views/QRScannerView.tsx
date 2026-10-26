@@ -7,12 +7,23 @@ interface QRScannerViewProps {
   onNavigate: (view: string) => void;
 }
 
+interface CameraDevice {
+  id: string;
+  label: string;
+}
+
 export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
   const [classSession, setClassSession] = useState('Regular');
   const [selectedLectureId, setSelectedLectureId] = useState<number | undefined>(undefined);
   const [manualInput, setManualInput] = useState('');
+  
+  // Camera state
   const [cameraActive, setCameraActive] = useState(false);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<CameraDevice[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('auto');
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   const [scanStatus, setScanStatus] = useState<{
     type: 'standby' | 'success' | 'duplicate' | 'error' | 'processing';
@@ -23,7 +34,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
     type: 'standby',
     title: 'Scanner Ready',
     subtitle: 'Position student QR code within camera boundary or simulate below.',
-    details: 'No submit button needed: Attendance marks automatically upon detection!',
+    details: 'Zero-click automatic recognition: Attendance marks automatically upon detection!',
   });
 
   const [completeModal, setCompleteModal] = useState<{
@@ -49,21 +60,21 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
   const allRecords = StorageService.getAttendanceRecords();
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Set default lecture
+  // Set default lecture if none selected
   useEffect(() => {
     if (lectures.length > 0 && selectedLectureId === undefined) {
       setSelectedLectureId(lectures[0].id);
     }
   }, [lectures, selectedLectureId]);
 
-  const activeLecture = lectures.find(l => l.id === selectedLectureId);
+  const activeLecture = lectures.find((l) => l.id === selectedLectureId);
 
   // Today's live records for this session
   const [liveSessionRecords, setLiveSessionRecords] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     const filtered = allRecords.filter(
-      r => r.date === todayStr && r.classSession === classSession && r.status === 'PRESENT'
+      (r) => r.date === todayStr && r.classSession === classSession && r.status === 'PRESENT'
     );
     setLiveSessionRecords(filtered);
   }, [allRecords, todayStr, classSession]);
@@ -74,112 +85,311 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
   const lastScanTimeRef = useRef<number>(0);
   const SCAN_COOLDOWN_MS = 2500;
 
-  const processStudentId = useCallback(async (rawId: string) => {
-    const cleanId = rawId.trim().toUpperCase();
-    if (!cleanId) return;
+  // Process student ID and mark attendance automatically
+  const processStudentId = useCallback(
+    async (rawId: string) => {
+      const cleanId = rawId.trim().toUpperCase();
+      if (!cleanId) return;
 
-    const now = Date.now();
-    if (isProcessingRef.current) return;
-    if (cleanId === lastScannedIdRef.current && now - lastScanTimeRef.current < SCAN_COOLDOWN_MS) {
-      return;
-    }
-
-    isProcessingRef.current = true;
-    lastScannedIdRef.current = cleanId;
-    lastScanTimeRef.current = now;
-
-    setScanStatus({
-      type: 'processing',
-      title: 'Processing QR Code...',
-      subtitle: `Reading code: ${cleanId}`,
-      details: 'Checking database and recording attendance...',
-    });
-
-    const result = await StorageService.markQRAttendance(cleanId, classSession, selectedLectureId);
-
-    if (result.success && !result.alreadyMarked) {
-      StorageService.playBeep(true);
-      setScanStatus({
-        type: 'success',
-        title: 'QR DETECTED ✓',
-        subtitle: `${result.studentName} (Roll No: ${result.rollNo})`,
-        details: `Attendance: PRESENT ✓ | Time: ${result.time} | Ready for next scan...`,
-      });
-
-      const updated = StorageService.getAttendanceRecords().filter(
-        r => r.date === todayStr && r.classSession === classSession && r.status === 'PRESENT'
-      );
-      setLiveSessionRecords(updated);
-    } else if (result.alreadyMarked) {
-      StorageService.playBeep(false);
-      setScanStatus({
-        type: 'duplicate',
-        title: 'ALREADY MARKED ✓',
-        subtitle: `${result.studentName} (Roll No: ${result.rollNo})`,
-        details: `Already marked at ${result.time} for this lecture. Duplicate ignored.`,
-      });
-    } else {
-      StorageService.playBeep(false);
-      setScanStatus({
-        type: 'error',
-        title: 'INVALID QR CODE ✗',
-        subtitle: result.message,
-        details: 'Check if student is registered in the Students database.',
-      });
-    }
-
-    setTimeout(() => {
-      isProcessingRef.current = false;
-    }, 1500);
-  }, [classSession, selectedLectureId, todayStr]);
-
-  const startCamera = async () => {
-    try {
-      setCameraError(null);
-      if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode('reader');
+      const now = Date.now();
+      if (isProcessingRef.current) return;
+      if (cleanId === lastScannedIdRef.current && now - lastScanTimeRef.current < SCAN_COOLDOWN_MS) {
+        return;
       }
 
-      await html5QrCodeRef.current.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        (decodedText) => {
-          processStudentId(decodedText);
-        },
-        () => {}
-      );
+      isProcessingRef.current = true;
+      lastScannedIdRef.current = cleanId;
+      lastScanTimeRef.current = now;
+
+      setScanStatus({
+        type: 'processing',
+        title: 'Processing QR Code...',
+        subtitle: `Reading code: ${cleanId}`,
+        details: 'Checking student record and saving attendance to database...',
+      });
+
+      const result = await StorageService.markQRAttendance(cleanId, classSession, selectedLectureId);
+
+      if (result.success && !result.alreadyMarked) {
+        StorageService.playBeep(true);
+        setScanStatus({
+          type: 'success',
+          title: 'ATTENDANCE MARKED ✓',
+          subtitle: `${result.studentName} (Roll No: ${result.rollNo})`,
+          details: `Status: PRESENT ✓ | Recorded Time: ${result.time} | Ready for next scan...`,
+        });
+
+        const updated = StorageService.getAttendanceRecords().filter(
+          (r) => r.date === todayStr && r.classSession === classSession && r.status === 'PRESENT'
+        );
+        setLiveSessionRecords(updated);
+      } else if (result.alreadyMarked) {
+        StorageService.playBeep(false);
+        setScanStatus({
+          type: 'duplicate',
+          title: 'ALREADY MARKED ✓',
+          subtitle: `${result.studentName} (Roll No: ${result.rollNo})`,
+          details: `Student was already marked at ${result.time} for this lecture. Duplicate ignored.`,
+        });
+      } else {
+        StorageService.playBeep(false);
+        setScanStatus({
+          type: 'error',
+          title: 'INVALID QR CODE ✗',
+          subtitle: result.message,
+          details: 'Student ID not found in registered roster. Verify student enrollment.',
+        });
+      }
+
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 1500);
+    },
+    [classSession, selectedLectureId, todayStr]
+  );
+
+  // Probe available cameras on mount
+  useEffect(() => {
+    const detectCameras = async () => {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+        return;
+      }
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          setAvailableCameras(
+            devices.map((d, index) => ({
+              id: d.id,
+              label: d.label || `Camera ${index + 1}`,
+            }))
+          );
+        }
+      } catch (err) {
+        // Devices might not be labeled before permission grant; this is normal
+      }
+    };
+    detectCameras();
+  }, []);
+
+  // Safe camera startup with graceful constraints fallback
+  const startCamera = async () => {
+    setCameraError(null);
+    setIsStartingCamera(true);
+
+    try {
+      // 1. Check for Secure Context (HTTPS or localhost)
+      const isLocalhost =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname === '[::1]';
+      const isHttps = window.location.protocol === 'https:';
+
+      if (!isLocalhost && !isHttps && !window.isSecureContext) {
+        throw new Error(
+          'SECURE_CONTEXT_REQUIRED: Browsers require HTTPS or localhost to access camera hardware. If running over plain HTTP on an external IP, camera permissions are blocked by browser security.'
+        );
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          'BROWSER_UNSUPPORTED: Your browser does not support the MediaDevices WebRTC API. Please use Google Chrome, Microsoft Edge, Safari, or Firefox.'
+        );
+      }
+
+      // 2. Request user media permission explicitly
+      try {
+        const testStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        testStream.getTracks().forEach((t) => t.stop());
+      } catch (permErr: any) {
+        if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
+          throw new Error(
+            'PERMISSION_DENIED: Camera permission was denied. Please click the camera/lock icon in your browser address bar, set Camera to "Allow", and try again.'
+          );
+        } else if (permErr.name === 'NotFoundError' || permErr.name === 'DevicesNotFoundError') {
+          throw new Error(
+            'NO_CAMERA_FOUND: No camera hardware was detected on this computer. Connect a webcam or test with the Viva Simulation buttons below.'
+          );
+        } else if (permErr.name === 'NotReadableError' || permErr.name === 'TrackStartError') {
+          throw new Error(
+            'CAMERA_IN_USE: The camera is currently locked by another application (e.g. Zoom, Google Meet, Teams, or another browser tab). Please close other apps using the webcam and retry.'
+          );
+        }
+        throw permErr;
+      }
+
+      // 3. Refresh camera devices list with official labels now that permission is granted
+      try {
+        const freshDevices = await Html5Qrcode.getCameras();
+        if (freshDevices && freshDevices.length > 0) {
+          setAvailableCameras(
+            freshDevices.map((d, index) => ({
+              id: d.id,
+              label: d.label || `Camera ${index + 1}`,
+            }))
+          );
+        }
+      } catch (devErr) {
+        // Proceed even if device list query fails
+      }
+
+      // 4. Clean up any existing Html5Qrcode instance
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
+          html5QrCodeRef.current.clear();
+        } catch (e) {
+          console.warn('Error clearing previous scanner instance:', e);
+        }
+      }
+
+      const scannerInstance = new Html5Qrcode('qr-reader-container');
+      html5QrCodeRef.current = scannerInstance;
+
+      // 5. Build camera config with fallback
+      // On laptops, facingMode 'environment' fails with OverconstrainedError because only a user webcam exists.
+      // We start with selected camera ID if specified, or ideal facingMode, falling back automatically.
+      const scanConfig = {
+        fps: 15,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      };
+
+      const handleScanSuccess = (decodedText: string) => {
+        processStudentId(decodedText);
+      };
+
+      let started = false;
+
+      // Strategy A: Specific device ID chosen by user
+      if (selectedCameraId && selectedCameraId !== 'auto') {
+        try {
+          await scannerInstance.start(
+            selectedCameraId,
+            scanConfig,
+            handleScanSuccess,
+            () => {}
+          );
+          started = true;
+        } catch (specErr) {
+          console.warn('Failed starting specific camera ID, falling back to auto:', specErr);
+        }
+      }
+
+      // Strategy B: Facing mode with ideal constraints
+      if (!started) {
+        try {
+          await scannerInstance.start(
+            { facingMode: { ideal: facingMode } },
+            scanConfig,
+            handleScanSuccess,
+            () => {}
+          );
+          started = true;
+        } catch (idealErr) {
+          console.warn('Ideal facing mode failed, retrying with default user camera:', idealErr);
+        }
+      }
+
+      // Strategy C: Generic user camera fallback (prevents OverconstrainedError on PC laptops)
+      if (!started) {
+        await scannerInstance.start(
+          { facingMode: 'user' },
+          scanConfig,
+          handleScanSuccess,
+          () => {}
+        );
+        started = true;
+      }
+
       setCameraActive(true);
+      setCameraError(null);
     } catch (err: unknown) {
-      console.warn('Camera start error:', err);
+      console.error('Camera startup error:', err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      setCameraError(`Camera unavailable (${errMsg}). You can simulate scans below using registered Student IDs.`);
+
+      if (errMsg.includes('SECURE_CONTEXT_REQUIRED')) {
+        setCameraError(
+          '🔒 Camera requires HTTPS or localhost. Modern browsers block camera access on unencrypted HTTP connections. Use the Viva Simulation mode below to test scanning.'
+        );
+      } else if (errMsg.includes('PERMISSION_DENIED')) {
+        setCameraError(
+          '🚫 Camera access blocked. Click the lock/camera icon in your browser URL bar, grant camera permission, and click "Start Camera".'
+        );
+      } else if (errMsg.includes('NO_CAMERA_FOUND')) {
+        setCameraError(
+          '📷 No webcam hardware detected on this device. Connect a camera or use the Viva Simulation buttons below.'
+        );
+      } else if (errMsg.includes('CAMERA_IN_USE')) {
+        setCameraError(
+          '⚠️ Webcam is currently in use by another application (e.g. Zoom, Google Meet). Close other video apps and retry.'
+        );
+      } else {
+        setCameraError(`Camera Error: ${errMsg}. You can use the Viva Simulation button below to test without a physical camera.`);
+      }
       setCameraActive(false);
+    } finally {
+      setIsStartingCamera(false);
     }
   };
 
+  // Safe camera stop
   const stopCamera = async () => {
-    if (html5QrCodeRef.current && cameraActive) {
+    if (html5QrCodeRef.current) {
       try {
-        await html5QrCodeRef.current.stop();
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop();
+        }
         html5QrCodeRef.current.clear();
       } catch (err) {
         console.warn('Camera stop error:', err);
       }
-      setCameraActive(false);
     }
+    setCameraActive(false);
   };
 
+  // Cleanup camera tracks on unmount
   useEffect(() => {
     return () => {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.stop().catch(() => {});
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            html5QrCodeRef.current.stop().catch(() => {}).finally(() => {
+              html5QrCodeRef.current?.clear();
+            });
+          }
+        } catch (e) {
+          // ignore cleanup errors
+        }
       }
     };
   }, []);
+
+  // Handle camera switch (e.g. Front vs Rear or specific camera)
+  const handleCameraChange = async (newCameraId: string) => {
+    setSelectedCameraId(newCameraId);
+    if (cameraActive) {
+      await stopCamera();
+      setTimeout(() => {
+        startCamera();
+      }, 300);
+    }
+  };
+
+  const handleFacingModeToggle = async () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextMode);
+    setSelectedCameraId('auto');
+    if (cameraActive) {
+      await stopCamera();
+      setTimeout(() => {
+        startCamera();
+      }, 300);
+    }
+  };
 
   const handleCompleteAttendance = async () => {
     const result = await StorageService.completeAttendanceAndNotify(classSession, 'ALL', selectedLectureId);
@@ -212,7 +422,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
                 onChange={(e) => setSelectedLectureId(Number(e.target.value))}
               >
                 {lectures.length === 0 && <option value="">No Lectures Created</option>}
-                {lectures.map(l => (
+                {lectures.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.subjectCode} - {l.subjectName}
                   </option>
@@ -239,8 +449,17 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
             </div>
 
             {activeLecture && (
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', backgroundColor: 'var(--beige)', padding: '5px 10px', borderRadius: '4px' }}>
-                👨‍🏫 Faculty: <strong>{activeLecture.professorName}</strong> &bull; Grace Period: <strong>{activeLecture.gracePeriodMinutes || 10} Mins</strong>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--text-muted)',
+                  backgroundColor: 'var(--beige)',
+                  padding: '5px 10px',
+                  borderRadius: '4px',
+                }}
+              >
+                👨‍🏫 Faculty: <strong>{activeLecture.professorName}</strong> &bull; Grace Period:{' '}
+                <strong>{activeLecture.gracePeriodMinutes || 10} Mins</strong>
               </div>
             )}
           </div>
@@ -257,56 +476,146 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
 
       {/* Two Column Scanner Layout */}
       <div className="scanner-layout">
-        {/* Left Column: Camera Box & Feedback */}
+        {/* Left Column: Camera Box & Controls */}
         <div className="scanner-box">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h3 style={{ color: 'var(--primary-brown)', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📷</span> Active Scanner Area
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '14px',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <h3
+              style={{
+                color: 'var(--primary-brown)',
+                fontSize: '16px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: 0,
+              }}
+            >
+              <span>📷</span> Live QR Attendance Scanner
             </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--golden-hover)', fontWeight: 600 }}>
-                {cameraActive ? '⚡ Live Camera Active' : 'Camera Standby'}
-              </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {/* Front / Rear Toggle */}
               <button
                 type="button"
+                onClick={handleFacingModeToggle}
+                className="btn btn-outline-brown btn-sm"
+                title="Toggle Front/Rear Camera"
+                style={{ fontSize: '11px', padding: '5px 9px' }}
+              >
+                🔄 {facingMode === 'environment' ? 'Rear (Back)' : 'Front (Webcam)'}
+              </button>
+
+              {/* Hardware Camera Selector (if multiple available) */}
+              {availableCameras.length > 1 && (
+                <select
+                  value={selectedCameraId}
+                  onChange={(e) => handleCameraChange(e.target.value)}
+                  className="form-control"
+                  style={{ width: '150px', padding: '4px 8px', fontSize: '11px' }}
+                >
+                  <option value="auto">Auto Select</option>
+                  {availableCameras.map((cam) => (
+                    <option key={cam.id} value={cam.id}>
+                      {cam.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Start / Stop Toggle */}
+              <button
+                type="button"
+                disabled={isStartingCamera}
                 onClick={cameraActive ? stopCamera : startCamera}
                 className={`btn btn-sm ${cameraActive ? 'btn-red' : 'btn-golden'}`}
               >
-                {cameraActive ? 'Stop Camera' : 'Start Camera'}
+                {isStartingCamera ? 'Connecting...' : cameraActive ? 'Stop Camera' : 'Start Camera'}
               </button>
             </div>
           </div>
 
           {cameraError && (
-            <div className="alert alert-warning" style={{ fontSize: '12px', marginBottom: '12px', padding: '10px 14px' }}>
-              <span>ℹ</span> {cameraError}
+            <div
+              className="alert alert-warning"
+              style={{
+                fontSize: '13px',
+                marginBottom: '14px',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>⚠</span>
+              <div style={{ flex: 1 }}>{cameraError}</div>
             </div>
           )}
 
+          {/* Dedicated Scanner Viewport */}
           <div
-            id="reader"
             style={{
               position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--golden-light)',
-              minHeight: '280px',
+              borderRadius: 'var(--radius-md)',
+              overflow: 'hidden',
               backgroundColor: '#24160E',
+              border: cameraActive ? '2px solid var(--soft-green)' : '2px dashed var(--golden)',
+              minHeight: '300px',
             }}
           >
+            {/* The actual HTML5 QR Code container (MUST remain unmutated by React) */}
+            <div
+              id="qr-reader-container"
+              style={{
+                width: '100%',
+                minHeight: cameraActive ? '300px' : '0',
+                display: cameraActive ? 'block' : 'none',
+              }}
+            />
+
+            {/* Overlay placeholder when camera is not running */}
             {!cameraActive && (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <div style={{ fontSize: '42px', marginBottom: '10px' }}>📹</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: 'white' }}>Webcam is currently idle</div>
-                <div style={{ fontSize: '12px', color: '#EBDDCF', marginTop: '4px' }}>
-                  Click &ldquo;Start Camera&rdquo; above to scan student ID cards, or use Viva Demo Mode below.
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '300px',
+                  padding: '30px 20px',
+                  textAlign: 'center',
+                  color: 'white',
+                }}
+              >
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>📷</div>
+                <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '6px' }}>
+                  Camera is Currently Inactive
                 </div>
+                <div style={{ fontSize: '13px', color: '#EBDDCF', maxWidth: '360px', marginBottom: '16px' }}>
+                  Click &ldquo;Start Camera&rdquo; above to enable continuous QR scanning. On mobile, toggle Front/Rear as needed.
+                </div>
+                <button
+                  type="button"
+                  disabled={isStartingCamera}
+                  onClick={startCamera}
+                  className="btn btn-golden btn-sm"
+                  style={{ padding: '8px 20px' }}
+                >
+                  {isStartingCamera ? 'Connecting...' : '▶ Start Camera Scanner'}
+                </button>
               </div>
             )}
           </div>
 
-          {/* Dynamic Feedback Card */}
+          {/* Dynamic Real-Time Feedback Card */}
           <div
             className={`scanner-status-card ${
               scanStatus.type === 'success'
@@ -336,8 +645,16 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
 
           {/* PC Viva Testing Simulation Bar */}
           <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px dashed var(--beige-dark)' }}>
-            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-brown)', display: 'block', marginBottom: '6px' }}>
-              💻 Viva Simulation (Test scan without camera):
+            <label
+              style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                color: 'var(--primary-brown)',
+                display: 'block',
+                marginBottom: '6px',
+              }}
+            >
+              💻 Viva Demonstration Simulation (Instant test without camera):
             </label>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
               <input
@@ -363,7 +680,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
                 className="btn btn-outline-brown btn-sm"
                 style={{ whiteSpace: 'nowrap' }}
               >
-                Scan ID
+                Scan Code
               </button>
             </div>
 
@@ -371,7 +688,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
             {students.length > 0 && (
               <>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  Click to mark registered student:
+                  Click registered student to test immediate automatic scan:
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {students.map((stu) => (
@@ -459,7 +776,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
               <div style={{ fontWeight: 700, fontSize: '16px' }}>Attendance Completed &amp; Absentee Report</div>
               <button
                 type="button"
-                onClick={() => setCompleteModal(prev => ({ ...prev, isOpen: false }))}
+                onClick={() => setCompleteModal((prev) => ({ ...prev, isOpen: false }))}
                 style={{ background: 'none', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }}
               >
                 ✕
@@ -471,7 +788,8 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
                 <div>
                   <strong>Session Completed:</strong>
                   <div>
-                    {completeModal.absentCount} student(s) identified as absent. {completeModal.notificationsCreated} notification records generated for students and parents.
+                    {completeModal.absentCount} student(s) identified as absent.{' '}
+                    {completeModal.notificationsCreated} notification records generated for students and parents.
                   </div>
                   {completeModal.isSmtpConfigured ? (
                     <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--soft-green)' }}>
@@ -522,7 +840,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    setCompleteModal(prev => ({ ...prev, isOpen: false }));
+                    setCompleteModal((prev) => ({ ...prev, isOpen: false }));
                     onNavigate('notifications');
                   }}
                   className="btn btn-golden btn-sm"
@@ -531,7 +849,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({ onNavigate }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCompleteModal(prev => ({ ...prev, isOpen: false }))}
+                  onClick={() => setCompleteModal((prev) => ({ ...prev, isOpen: false }))}
                   className="btn btn-outline-brown btn-sm"
                 >
                   Close

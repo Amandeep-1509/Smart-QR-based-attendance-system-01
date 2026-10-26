@@ -368,6 +368,74 @@ app.post('/api/setup', (req: Request, res: Response) => {
   });
 });
 
+// 2b. Unified Registration (Sign Up)
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  const { username, password, fullName, designation, department, email } = req.body;
+  if (!username || !password || !fullName) {
+    return res.status(400).json({ error: 'Username, password, and full name are required.' });
+  }
+
+  const cleanUsername = username.trim().toLowerCase();
+  if (cleanUsername.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+  }
+
+  // Prevent duplicate username
+  const existingUser = db.users.find(u => u.username.toLowerCase() === cleanUsername);
+  if (existingUser) {
+    return res.status(400).json({ error: `The username "${cleanUsername}" is already registered. Please choose a different username.` });
+  }
+
+  const isFirstUser = db.users.length === 0;
+  const newUserId = db.users.length > 0 ? Math.max(...db.users.map(u => u.id)) + 1 : 1;
+  const newRole = isFirstUser ? ('ADMIN' as const) : ('TEACHER' as const);
+
+  const newUser = {
+    id: newUserId,
+    username: cleanUsername,
+    passwordHash: hashPassword(password),
+    fullName: fullName.trim(),
+    role: newRole,
+    email: email ? email.trim() : '',
+    department: department ? department.trim() : 'Computer Engineering',
+  };
+
+  db.users.push(newUser);
+
+  // Add corresponding professor entry
+  const nextProfId = db.professors.length > 0 ? Math.max(...db.professors.map(p => p.id)) + 1 : 1;
+  const facultyCode = `FAC${String(nextProfId).padStart(3, '0')}`;
+  const newProfessor = {
+    id: nextProfId,
+    name: fullName.trim(),
+    facultyId: facultyCode,
+    designation: designation ? designation.trim() : (isFirstUser ? 'Professor & Admin' : 'Assistant Professor'),
+    department: department ? department.trim() : 'Computer Engineering',
+    email: email ? email.trim() : '',
+  };
+  db.professors.push(newProfessor);
+
+  saveDB(db);
+
+  res.json({
+    success: true,
+    message: isFirstUser
+      ? 'Master Administrator and Head Faculty account created successfully!'
+      : 'Faculty account registered successfully!',
+    user: {
+      id: newUser.id,
+      username: newUser.username,
+      fullName: newUser.fullName,
+      role: newUser.role,
+      department: newUser.department,
+    },
+  });
+});
+
 // 3. Login
 app.post('/api/auth/login', (req: Request, res: Response) => {
   const { username, password } = req.body;

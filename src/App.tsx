@@ -15,8 +15,7 @@ import { ReportsView } from './views/ReportsView';
 import { NotificationsView } from './views/NotificationsView';
 import { EmailSettingsView } from './views/EmailSettingsView';
 import { EmailTemplatesView } from './views/EmailTemplatesView';
-import { LoginView } from './views/LoginView';
-import { InitialSetupView } from './views/InitialSetupView';
+import { AuthView } from './views/AuthView';
 import { ChangePasswordModal } from './views/ChangePasswordModal';
 
 export const App: React.FC = () => {
@@ -47,12 +46,7 @@ export const App: React.FC = () => {
     setCurrentUser(null);
   };
 
-  const handleLoginSuccess = (user: User) => {
-    setCurrentUser(user);
-    setActiveView('dashboard');
-  };
-
-  const handleSetupComplete = (user: User) => {
+  const handleAuthSuccess = (user: User) => {
     setIsInitialized(true);
     setCurrentUser(user);
     setActiveView('dashboard');
@@ -66,14 +60,9 @@ export const App: React.FC = () => {
     );
   }
 
-  // 1. If system is not initialized, show first-time Administrator Setup
-  if (!isInitialized) {
-    return <InitialSetupView onSetupComplete={handleSetupComplete} />;
-  }
-
-  // 2. If initialized but not logged in, show Login
+  // Unauthenticated screen: Unified Sign In & Sign Up
   if (!currentUser) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} onGoToSetup={() => setIsInitialized(false)} />;
+    return <AuthView isInitialized={isInitialized} onAuthSuccess={handleAuthSuccess} />;
   }
 
   const getViewDetails = () => {
