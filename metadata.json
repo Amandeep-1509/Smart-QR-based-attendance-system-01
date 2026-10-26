@@ -1,0 +1,8 @@
+{
+  "name": "Smart QR-Based Attendance System",
+  "description": "Smart QR-based attendance and automated parent/student email notification system with continuous scan-and-pass, manual backup, analytics reports, student ID cards, and email template customization.",
+  "version": "1.0.0",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

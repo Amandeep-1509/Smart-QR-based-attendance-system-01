@@ -1,0 +1,55 @@
+{
+  "users": [],
+  "professors": [],
+  "lectures": [],
+  "students": [],
+  "attendance": [],
+  "notifications": [],
+  "emailSettings": {
+    "id": 1,
+    "senderEmail": "",
+    "senderName": "ARMIET Attendance Portal",
+    "appPassword": "",
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "connectionStatus": "NOT_CONFIGURED"
+  },
+  "emailTemplates": [
+    {
+      "id": 1,
+      "templateType": "STUDENT_ABSENCE",
+      "displayLabel": "Student Absence Notification",
+      "subject": "Attendance Notification – You Were Marked Absent Today",
+      "bodyText": "Dear {student_name},\n\nThis is to inform you that you were marked ABSENT for today's lecture.\n\nDetails:\n  Date       : {date}\n  Lecture    : {subject_name} ({subject_code})\n  Faculty    : {professor_name}\n  Class      : {class_name} – {division}\n  Roll No    : {roll_no}\n  Status     : {attendance_status}\n\nIf you believe this is an error, please contact your class teacher immediately.\n\nRegards,\n{professor_name}\n{college_name}",
+      "isCustomized": false,
+      "lastModified": "2026-10-26T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "templateType": "PARENT_ABSENCE",
+      "displayLabel": "Parent Absence Alert",
+      "subject": "Your Ward's Attendance Notification – {student_name} Was Absent",
+      "bodyText": "Dear {parent_name},\n\nThis is to inform you that your ward {student_name} (Roll No: {roll_no}) was marked ABSENT for today's lecture.\n\nDetails:\n  Date       : {date}\n  Lecture    : {subject_name} ({subject_code})\n  Faculty    : {professor_name}\n  Class      : {class_name} – {division}\n  Status     : {attendance_status}\n\nPlease ensure your ward attends lectures regularly. Feel free to contact the department for any queries.\n\nRegards,\n{professor_name}\n{college_name}",
+      "isCustomized": false,
+      "lastModified": "2026-10-26T00:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "templateType": "TEACHER_ABSENCE",
+      "displayLabel": "Faculty Absence Summary",
+      "subject": "Lecture Attendance Summary – Absent Students for {date}",
+      "bodyText": "Dear Faculty,\n\nHere is the attendance report for {subject_name} ({class_name} – {division}) on {date}.\n\nFaculty: {professor_name}\nSession: {class_session}\nTotal Absent: {absent_count} students.\n\nFull session records have been archived in the attendance portal.\n\nRegards,\n{college_name} Administration",
+      "isCustomized": false,
+      "lastModified": "2026-10-26T00:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "templateType": "TEACHER_ATTENDANCE",
+      "displayLabel": "Faculty Full Statistics",
+      "subject": "Attendance Statistics – {subject_name} on {date}",
+      "bodyText": "Dear Faculty,\n\nAttendance stats for {subject_name} on {date}:\nFaculty In-Charge : {professor_name}\nTotal Students     : {total_count}\nPresent            : {present_count}\nAbsent             : {absent_count}\nAttendance Rate    : {attendance_percentage}%\n\nFull details and printable PDF reports are available in Attendance Reports.\n\nRegards,\n{college_name} Administration",
+      "isCustomized": false,
+      "lastModified": "2026-10-26T00:00:00.000Z"
+    }
+  ]
+}
